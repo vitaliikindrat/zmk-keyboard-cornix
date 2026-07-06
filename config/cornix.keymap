@@ -40,18 +40,20 @@
 
 /* Alt-Tab / Super-Tab / Ctrl-Tab swappers (tri-state module).
  * First tap: press+hold mod, send Tab. Further taps: Tab only.
- * The NAV hold IS the mod hold: releasing l5 deactivates NAV, which ends
- * the tri-state and releases the mod — i.e. letting go of l5 commits the
- * switcher selection. Quick flip = l5 + one tap + release.
- * Arrows (18-21) don't interrupt, so you can steer the KWin switcher
- * with hjkl-arrows while holding l5.
+ * The NAV hold IS the mod hold: position 12 (the l5 key) is deliberately
+ * NOT in ignored-key-positions, so its release event interrupts the
+ * tri-state and releases the mod — letting go of l5 commits the switcher.
+ * (Layer deactivation itself can't end a tri-state: the module's layer
+ * listener only reacts to activations.)
+ * Quick flip = l5 + one tap + release. Arrows (18-21) don't interrupt,
+ * so you can steer the KWin switcher with hjkl-arrows while holding l5.
  */
 ZMK_TRI_STATE(swap_gui, bindings = <&kt LGUI>, <&kp TAB>, <&kt LGUI>;
-              ignored-key-positions = <12 18 19 20 21>;)
+              ignored-key-positions = <18 19 20 21>;)
 ZMK_TRI_STATE(swap_alt, bindings = <&kt LALT>, <&kp TAB>, <&kt LALT>;
-              ignored-key-positions = <12 18 19 20 21>;)
+              ignored-key-positions = <18 19 20 21>;)
 ZMK_TRI_STATE(swap_ctl, bindings = <&kt LCTRL>, <&kp TAB>, <&kt LCTRL>;
-              ignored-key-positions = <12 18 19 20 21>;)
+              ignored-key-positions = <18 19 20 21>;)
 
 // helix "zz" — center view on cursor
 / {
