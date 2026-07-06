@@ -55,7 +55,17 @@ ZMK_TRI_STATE(swap_ctl, bindings = <&kt LCTRL>, <&kp TAB>, <&kt LCTRL>;
               ignored-layers = <NAV>;)
 
 // helix "zz" — center view on cursor
-ZMK_MACRO(zz, bindings = <&kp Z &kp Z>;)
+/ {
+    macros {
+        zz: zz {
+            compatible = "zmk,behavior-macro";
+            #binding-cells = <0>;
+            wait-ms = <20>;
+            tap-ms = <20>;
+            bindings = <&kp Z &kp Z>;
+        };
+    };
+};
 
 / {
     behaviors {
