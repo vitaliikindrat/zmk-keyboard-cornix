@@ -29,14 +29,13 @@
 #define FN   3
 #define NAV  4
 
-// urob-style timeless homerow mods
-#define HM_TAPPING_TERM 250
+// homerow mods: balanced flavor = permissive hold — a nested tap of ANY
+// key (same hand included) resolves the mod instantly on its release.
+// No positional hold-trigger restriction, per user preference (Vial feel).
+#define HM_TAPPING_TERM 200
 #define HM_TAPPING_TERM_FAST 200
 #define HM_PRIOR_IDLE 70
 
-#define KEYS_L LT0 LT1 LT2 LT3 LT4 LT5 LM0 LM1 LM2 LM3 LM4 LM5 LB0 LB1 LB2 LB3 LB4 LB5  // left hand
-#define KEYS_R RT0 RT1 RT2 RT3 RT4 RT5 RM0 RM1 RM2 RM3 RM4 RM5 RB0 RB1 RB2 RB3 RB4 RB5  // right hand
-#define KEYS_T 30 31 38 39 40 41 42 43 44 45 46 47 48 49                                // thumbs + palms + enc
 
 /* Alt-Tab / Super-Tab / Ctrl-Tab swappers (tri-state module).
  * First tap: press+hold mod, send Tab. Further taps: Tab only.
@@ -78,8 +77,6 @@ ZMK_TRI_STATE(swap_ctl, bindings = <&kt LCTRL>, <&kp TAB>, <&kt LCTRL>;
             tapping-term-ms = <HM_TAPPING_TERM>;
             quick-tap-ms = <200>;
             require-prior-idle-ms = <HM_PRIOR_IDLE>;
-            hold-trigger-key-positions = <KEYS_R KEYS_T>;
-            hold-trigger-on-release;
         };
 
         hm_r: homerow_mods_right {
@@ -90,8 +87,6 @@ ZMK_TRI_STATE(swap_ctl, bindings = <&kt LCTRL>, <&kp TAB>, <&kt LCTRL>;
             tapping-term-ms = <HM_TAPPING_TERM>;
             quick-tap-ms = <200>;
             require-prior-idle-ms = <HM_PRIOR_IDLE>;
-            hold-trigger-key-positions = <KEYS_L KEYS_T>;
-            hold-trigger-on-release;
         };
 
         hm_shift_l: hm_shift_l {
@@ -102,8 +97,6 @@ ZMK_TRI_STATE(swap_ctl, bindings = <&kt LCTRL>, <&kp TAB>, <&kt LCTRL>;
             tapping-term-ms = <HM_TAPPING_TERM_FAST>;
             quick-tap-ms = <200>;
             require-prior-idle-ms = <HM_PRIOR_IDLE>;
-            hold-trigger-key-positions = <KEYS_R KEYS_T>;
-            hold-trigger-on-release;
         };
 
         hm_shift_r: hm_shift_r {
@@ -114,8 +107,6 @@ ZMK_TRI_STATE(swap_ctl, bindings = <&kt LCTRL>, <&kp TAB>, <&kt LCTRL>;
             tapping-term-ms = <HM_TAPPING_TERM_FAST>;
             quick-tap-ms = <200>;
             require-prior-idle-ms = <HM_PRIOR_IDLE>;
-            hold-trigger-key-positions = <KEYS_L KEYS_T>;
-            hold-trigger-on-release;
         };
 
         lt: layer_tap {
