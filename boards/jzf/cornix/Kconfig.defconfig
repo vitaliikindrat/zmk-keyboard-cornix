@@ -27,8 +27,12 @@ config ZMK_SPLIT_BLE_ROLE_CENTRAL
 config ZMK_SPLIT_BLE_CENTRAL_BATTERY_LEVEL_FETCHING
 	default y
 
+# The upstream definition of PROXY lives inside `if ..._FETCHING`; redefining
+# it here without that guard lets PROXY go y while FETCHING is n, which does
+# not link (bas proxy calls the fetching code). Keep the guard.
 config ZMK_SPLIT_BLE_CENTRAL_BATTERY_LEVEL_PROXY
 	default y
+	depends on ZMK_SPLIT_BLE_CENTRAL_BATTERY_LEVEL_FETCHING
 
 endif # BOARD_CORNIX_LEFT
 
