@@ -145,12 +145,12 @@ ZMK_TRI_STATE(swap_ctl, bindings = <&kt LCTRL>, <&kp TAB>, <&kt LCTRL>;
         base_layer {
             display-name = "Base";
             //  tab   q    w    e    r    t    |   y    u    i    o    p    [
-            //  esc/N a/G  s/A  d/C  f/S  g    |   h    j/S  k/C  l/A  ;    bspc
+            //  esc/N a/G  s/A  d/C  f/S  g    |   h    j/S  k/C  l/A  ;/G  bspc
             //  -     z    x    c    v    b  mute|play n    m    ,    .    /    bsl
             //  cF7  cF9  shft | ctrl SYM* spc  |  ret  :   MUX | FN   f24  capsw
             bindings = <
 &kp TAB       &kp Q         &kp W         &kp E          &kp R                &kp T                            &kp Y      &kp U                &kp I         &kp O         &kp P             &kp LBKT
-&lt NAV ESC   &hm_l LGUI A  &hm_l LALT S  &hm_l LCTRL D  &hm_shift_l LSHFT F  &kp G                            &kp H      &hm_shift_r RSHFT J  &hm_r RCTRL K &hm_r LALT L  &kp SEMI          &kp BSPC
+&lt NAV ESC   &hm_l LGUI A  &hm_l LALT S  &hm_l LCTRL D  &hm_shift_l LSHFT F  &kp G                            &kp H      &hm_shift_r RSHFT J  &hm_r RCTRL K &hm_r LALT L  &hm_r RGUI SEMI   &kp BSPC
 &kp MINUS     &kp Z         &kp X         &kp C          &kp V                &kp B      &kp C_MUTE  &kp C_PP  &kp N      &kp M                &kp COMMA     &kp DOT       &kp FSLH          &kp BSLH
 &kp LC(F7)    &kp LC(F9)    &kp LSHFT     &kp LCTRL      &td_sym_mux          &kp SPACE                        &kp RET    &kp COLON            &mo MUX       &mo FN        &kp F24           &caps_word
             >;
