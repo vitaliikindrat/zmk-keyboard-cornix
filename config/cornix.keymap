@@ -37,19 +37,24 @@
 #define HM_PRIOR_IDLE 70
 
 
-/* Alt-Tab / Super-Tab / Ctrl-Tab swappers (tri-state module).
- * First tap: press+hold mod, send Tab. Further taps: Tab only.
+/* macOS-native window / app / tab switchers (tri-state module).
+ * The keymap is mac-tuned; the Linux WM adapts to these same keycodes
+ * (see the mac-anchored workflow decision — no per-OS mac layer):
+ *   left  thumb  swap_gui_grv = Cmd+`   -> cycle windows of the focused app
+ *   middle thumb swap_gui     = Cmd+Tab -> switch apps (macOS app switcher)
+ *   right thumb  swap_ctl     = Ctrl+Tab -> cycle tabs within the app
+ * First tap: press+hold mod, send the key. Further taps: key only.
  * The NAV hold IS the mod hold: position 12 (the l5 key) is deliberately
  * NOT in ignored-key-positions, so its release event interrupts the
  * tri-state and releases the mod — letting go of l5 commits the switcher.
  * (Layer deactivation itself can't end a tri-state: the module's layer
  * listener only reacts to activations.)
- * Quick flip = l5 + one tap + release. Arrows (18-21) don't interrupt,
- * so you can steer the KWin switcher with hjkl-arrows while holding l5.
+ * Quick flip = l5 + one tap + release. Arrows (18-21) don't interrupt, so
+ * you can steer the Cmd+Tab switcher with hjkl-arrows while holding l5.
  */
 ZMK_TRI_STATE(swap_gui, bindings = <&kt LGUI>, <&kp TAB>, <&kt LGUI>;
               ignored-key-positions = <18 19 20 21>;)
-ZMK_TRI_STATE(swap_alt, bindings = <&kt LALT>, <&kp TAB>, <&kt LALT>;
+ZMK_TRI_STATE(swap_gui_grv, bindings = <&kt LGUI>, <&kp GRAVE>, <&kt LGUI>;
               ignored-key-positions = <18 19 20 21>;)
 ZMK_TRI_STATE(swap_ctl, bindings = <&kt LCTRL>, <&kp TAB>, <&kt LCTRL>;
               ignored-key-positions = <18 19 20 21>;)
@@ -203,12 +208,12 @@ ZMK_TRI_STATE(swap_ctl, bindings = <&kt LCTRL>, <&kp TAB>, <&kt LCTRL>;
             //  `    ws1  ws2  ws3  ws4   F6   |  S-Y  C-u  A-i  A-o  A-p  A-n
             //  __   S-A  A-s  C-d (shft) S-G  |   ←    ↓    ↑    →   A-;  del
             //  __   zz   S-X  tgC  tgV   __  __|mb3 Home PgDn PgUp  End   __   __
-            //  A-w  C-tb CS-tb| swG  swA  swC |   __   __  SYM | __   __   __
+            //  A-w  C-tb CS-tb| ⌘`   ⌘tab ^tab|   __   __  SYM | __   __   __
             bindings = <
 &kp GRAVE  &kp LG(N1)   &kp LG(N2)      &kp LG(N3)     &kp LG(N4)     &kp F6                          &kp LS(Y)  &kp LC(U)  &kp LA(I)  &kp LA(O)  &kp LA(P)     &kp LA(N)
 &trans     &kp LS(A)    &kp LA(S)       &kp LC(D)      &trans         &kp LS(G)                       &kp LEFT   &kp DOWN   &kp UP     &kp RIGHT  &kp LA(SEMI)  &kp DEL
 &none      &zz          &kp LS(X)       &kp LC(LS(C))  &kp LC(LS(V))  &none      &trans   &mkp MCLK   &kp HOME   &kp PG_DN  &kp PG_UP  &kp END    &none         &none
-&kp LA(W)  &kp LC(TAB)  &kp LC(LS(TAB)) &swap_gui      &swap_alt      &swap_ctl                       &none      &none      &mo SYM    &none      &none         &none
+&kp LA(W)  &kp LC(TAB)  &kp LC(LS(TAB)) &swap_gui_grv  &swap_gui      &swap_ctl                       &none      &none      &mo SYM    &none      &none         &none
             >;
         };
     };
