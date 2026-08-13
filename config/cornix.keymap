@@ -1,9 +1,24 @@
 /*
- * Cornix — port of vitalii's Vial/RMK layout to ZMK.
+ * Cornix — semantic redesign, ported from the Keyball44 (both boards now
+ * share ONE layer table; keyball's trackball layers 4/5/6 are parity
+ * stubs here so indices and muscle memory match exactly).
  *
- * Layers: BASE, SYM (old vial L2), MUX (zellij Ctrl+Alt layer, old L3),
- *         FN (old L4), NAV (helix/nav layer, old L5).
- * The old mac base layer (vial L1) was dropped.
+ * ANCHOR: Linux-truth + macOS per-device modifier swap (Ctrl <-> Cmd set
+ * once in System Settings for this keyboard). Firmware emits Linux-native
+ * chords; mac receives Ctrl as Cmd and Gui as Ctrl. Chords holding BOTH
+ * Ctrl and Gui are swap-invariant. Ctrl-chords = command space,
+ * Super-chords = window/desktop space.
+ *
+ *   CMD (9)  — semantic command layer on the old thumb-LCTRL slot:
+ *              mnemonic Ctrl-chords, native on KDE, arrive as Cmd on mac.
+ *   WS  (7)  — windows & desktops: hjkl = Super+arrows (KDE Meta binds;
+ *              mac swap -> Ctrl+arrows natives). Window quad swap-proof.
+ *   MAC (3)  — transparent OS flag, FUN+M toggle (display shows it; NOT
+ *              persisted). Kept below 4/5/6 for keyball parity. Drives
+ *              MACNAV (11) / MACMUX (12) which re-emit the mac-poisoned
+ *              chords: real-Ctrl helix keys, tab cyclers, swappers,
+ *              zellij grid.
+ *   sym_mux  — hold = SYM, tap = sticky MUX (1 s), tap-then-hold = MUX.
  *
  * Physical map (matrix positions):
  *   0  1  2  3  4  5   |   6  7  8  9 10 11
@@ -23,11 +38,22 @@
 #include <dt-bindings/zmk/keys.h>
 #include <dt-bindings/zmk/pointing.h>
 
-#define BASE 0
-#define SYM  1
-#define MUX  2
-#define FN   3
-#define NAV  4
+#define BASE    0
+#define NAV     1
+#define SYM     2
+#define MAC     3
+#define MOUSE   4
+#define SCROLL  5
+#define SNIPE   6
+#define WS      7
+#define MUX     8
+#define CMD     9
+#define FUN     10
+#define MACNAV  11
+#define MACMUX  12
+/* MOUSE/SCROLL/SNIPE are keyball trackball layers — empty parity stubs
+ * here. MAC must stay below them on the keyball (pmw3610 highest-layer
+ * detection); mirrored here so both boards share one table. */
 
 // homerow mods: balanced flavor = permissive hold — a nested tap of ANY
 // key (same hand included) resolves the mod instantly on its release.
@@ -37,26 +63,23 @@
 #define HM_PRIOR_IDLE 70
 
 
-/* macOS-native window / app / tab switchers (tri-state module).
- * The keymap is mac-tuned; the Linux WM adapts to these same keycodes
- * (see the mac-anchored workflow decision — no per-OS mac layer):
- *   left  thumb  swap_gui_grv = Cmd+`   -> cycle windows of the focused app
- *   middle thumb swap_gui     = Cmd+Tab -> switch apps (macOS app switcher)
- *   right thumb  swap_ctl     = Ctrl+Tab -> cycle tabs within the app
- * First tap: press+hold mod, send the key. Further taps: key only.
- * The NAV hold IS the mod hold: position 12 (the l5 key) is deliberately
- * NOT in ignored-key-positions, so its release event interrupts the
- * tri-state and releases the mod — letting go of l5 commits the switcher.
- * (Layer deactivation itself can't end a tri-state: the module's layer
- * listener only reacts to activations.)
- * Quick flip = l5 + one tap + release. Arrows (18-21) don't interrupt, so
- * you can steer the Cmd+Tab switcher with hjkl-arrows while holding l5.
+/* Window / app / tab switchers (tri-state module).
+ * Linux mode (default): swap_gui_grv = Gui+` window cycle, swap_gui =
+ * Gui+Tab app switch (KDE bound), swap_ctl = Ctrl+Tab in-app tabs.
+ * MAC mode cross-assigns them on MACNAV: swap_ctl's Ctrl+Tab arrives as
+ * Cmd+Tab (app switch), swap_gui's Gui+Tab arrives as Ctrl+Tab (tabs),
+ * and swap_mac_grv emits Ctrl+` -> arrives Cmd+` (window cycle).
+ * The NAV hold IS the mod hold: position 12 (the NAV lt key) is
+ * deliberately NOT in ignored-key-positions, so releasing it commits the
+ * switcher. Arrows (18-21) don't interrupt — steer with hjkl-arrows.
  */
 ZMK_TRI_STATE(swap_gui, bindings = <&kt LGUI>, <&kp TAB>, <&kt LGUI>;
               ignored-key-positions = <18 19 20 21>;)
 ZMK_TRI_STATE(swap_gui_grv, bindings = <&kt LGUI>, <&kp GRAVE>, <&kt LGUI>;
               ignored-key-positions = <18 19 20 21>;)
 ZMK_TRI_STATE(swap_ctl, bindings = <&kt LCTRL>, <&kp TAB>, <&kt LCTRL>;
+              ignored-key-positions = <18 19 20 21>;)
+ZMK_TRI_STATE(swap_mac_grv, bindings = <&kt LCTRL>, <&kp GRAVE>, <&kt LCTRL>;
               ignored-key-positions = <18 19 20 21>;)
 
 // helix "zz" — center view on cursor
@@ -72,7 +95,23 @@ ZMK_TRI_STATE(swap_ctl, bindings = <&kt LCTRL>, <&kp TAB>, <&kt LCTRL>;
     };
 };
 
+// sticky MUX arm window: a tap of sym_mux waits this long for the zellij
+// key before dropping. Short on purpose — limits stray-tap damage.
+&sl { release-after-ms = <1000>; };
+
 / {
+    conditional_layers {
+        compatible = "zmk,conditional-layers";
+        macnav {
+            if-layers = <MAC NAV>;
+            then-layer = <MACNAV>;
+        };
+        macmux {
+            if-layers = <MAC MUX>;
+            then-layer = <MACMUX>;
+        };
+    };
+
     behaviors {
         hm_l: homerow_mods_left {
             compatible = "zmk,behavior-hold-tap";
@@ -123,12 +162,16 @@ ZMK_TRI_STATE(swap_ctl, bindings = <&kt LCTRL>, <&kp TAB>, <&kt LCTRL>;
             quick-tap-ms = <200>;
         };
 
-        // vial TD(1): hold = SYM, tap-then-hold = MUX
-        td_sym_mux: td_sym_mux {
-            compatible = "zmk,behavior-tap-dance";
-            #binding-cells = <0>;
+        // hold = SYM, tap = sticky MUX (next key goes to zellij),
+        // tap-then-hold = held MUX via quick-tap (the old vial gesture
+        // still works). Sticky arm expires via &sl release-after-ms.
+        sym_mux: sym_mux {
+            compatible = "zmk,behavior-hold-tap";
+            #binding-cells = <2>;
+            bindings = <&mo>, <&sl>;
+            flavor = "hold-preferred";
             tapping-term-ms = <200>;
-            bindings = <&mo SYM>, <&mo MUX>;
+            quick-tap-ms = <200>;
         };
 
         // right encoder on BASE: mouse wheel
@@ -147,14 +190,32 @@ ZMK_TRI_STATE(swap_ctl, bindings = <&kt LCTRL>, <&kp TAB>, <&kt LCTRL>;
             //  tab   q    w    e    r    t    |   y    u    i    o    p    [
             //  esc/N a/G  s/A  d/C  f/S  g    |   h    j/S  k/C  l/A  ;/G  bspc
             //  -     z    x    c    v    b  mute|play n    m    ,    .    /    bsl
-            //  cF7  cF9  shft | ctrl SYM* spc  |  ret  :   MUX | FN   f24  capsw
+            //  cF7  cF9  shft | CMD  SYM* spc  |  ret  :   MUX | FUN  f24  capsw
+            // (thumb LCTRL replaced by CMD hold — raw Ctrl chords go
+            //  cross-hand via HRM K; frequent commands live on CMD.
+            //  cF7 = same-app windows / Exposé, cF9 = Mission Control.)
             bindings = <
 &kp TAB       &kp Q         &kp W         &kp E          &kp R                &kp T                            &kp Y      &kp U                &kp I         &kp O         &kp P             &kp LBKT
 &lt NAV ESC   &hm_l LGUI A  &hm_l LALT S  &hm_l LCTRL D  &hm_shift_l LSHFT F  &kp G                            &kp H      &hm_shift_r RSHFT J  &hm_r RCTRL K &hm_r LALT L  &hm_r RGUI SEMI   &kp BSPC
 &kp MINUS     &kp Z         &kp X         &kp C          &kp V                &kp B      &kp C_MUTE  &kp C_PP  &kp N      &kp M                &kp COMMA     &kp DOT       &kp FSLH          &kp BSLH
-&kp LC(F7)    &kp LC(F9)    &kp LSHFT     &kp LCTRL      &td_sym_mux          &kp SPACE                        &kp RET    &kp COLON            &mo MUX       &mo FN        &kp F24           &caps_word
+&kp LC(F7)    &kp LC(F9)    &kp LSHFT     &mo CMD        &sym_mux SYM MUX     &kp SPACE                        &kp RET    &kp COLON            &mo MUX       &mo FUN       &kp F24           &caps_word
             >;
             sensor-bindings = <&inc_dec_kp C_VOL_UP C_VOL_DN &scroll_enc>;
+        };
+
+        nav_layer {
+            display-name = "Nav";
+            // helix support + navigation + swappers
+            //  `    ws1  ws2  ws3  ws4   F6   |  S-Y  C-u  A-i  A-o  A-p  A-n
+            //  __   S-A  A-s  C-d (shft) S-G  |   ←    ↓    ↑    →   A-;  del
+            //  __   zz   S-X  tgC  tgV   __  __|mb3 Home PgDn PgUp  End   __   __
+            //  A-w  C-tb CS-tb| ⌘`   ⌘tab ^tab|   WS   FUN  SYM | __   __   __
+            bindings = <
+&kp GRAVE  &kp LG(N1)   &kp LG(N2)      &kp LG(N3)     &kp LG(N4)     &kp F6                          &kp LS(Y)  &kp LC(U)  &kp LA(I)  &kp LA(O)  &kp LA(P)     &kp LA(N)
+&trans     &kp LS(A)    &kp LA(S)       &kp LC(D)      &trans         &kp LS(G)                       &kp LEFT   &kp DOWN   &kp UP     &kp RIGHT  &kp LA(SEMI)  &kp DEL
+&none      &zz          &kp LS(X)       &kp LC(LS(C))  &kp LC(LS(V))  &none      &trans   &mkp MCLK   &kp HOME   &kp PG_DN  &kp PG_UP  &kp END    &none         &none
+&kp LA(W)  &kp LC(TAB)  &kp LC(LS(TAB)) &swap_gui_grv  &swap_gui      &swap_ctl                       &mo WS     &mo FUN    &mo SYM    &none      &none         &none
+            >;
         };
 
         sym_layer {
@@ -170,6 +231,67 @@ ZMK_TRI_STATE(swap_ctl, bindings = <&kt LCTRL>, <&kp TAB>, <&kt LCTRL>;
 &kp EQUAL  &kp ASTRK  &none     &kp K_COPY  &trans     &kp K_PASTE                   &trans     &kp SEMI  &kp DEL   &none      &none     &none
             >;
             sensor-bindings = <&inc_dec_kp C_VOL_UP C_VOL_DN &inc_dec_kp LC(EQUAL) LC(MINUS)>;
+        };
+
+        mac_layer {
+            display-name = "Mac";
+            // transparent OS flag (layer 3) — drives MACNAV/MACMUX.
+            // Toggled FUN+M. Encoders kept alive (no sensor fallthrough).
+            bindings = <
+&trans  &trans  &trans  &trans  &trans  &trans                  &trans  &trans  &trans  &trans  &trans  &trans
+&trans  &trans  &trans  &trans  &trans  &trans                  &trans  &trans  &trans  &trans  &trans  &trans
+&trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans
+&trans  &trans  &trans  &trans  &trans  &trans                  &trans  &trans  &trans  &trans  &trans  &trans
+            >;
+            sensor-bindings = <&inc_dec_kp C_VOL_UP C_VOL_DN &scroll_enc>;
+        };
+
+        mouse_stub {
+            display-name = "Mouse";
+            // keyball trackball layer — parity stub, never activated here
+            bindings = <
+&trans  &trans  &trans  &trans  &trans  &trans                  &trans  &trans  &trans  &trans  &trans  &trans
+&trans  &trans  &trans  &trans  &trans  &trans                  &trans  &trans  &trans  &trans  &trans  &trans
+&trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans
+&trans  &trans  &trans  &trans  &trans  &trans                  &trans  &trans  &trans  &trans  &trans  &trans
+            >;
+        };
+
+        scroll_stub {
+            display-name = "Scroll";
+            // keyball trackball layer — parity stub, never activated here
+            bindings = <
+&trans  &trans  &trans  &trans  &trans  &trans                  &trans  &trans  &trans  &trans  &trans  &trans
+&trans  &trans  &trans  &trans  &trans  &trans                  &trans  &trans  &trans  &trans  &trans  &trans
+&trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans
+&trans  &trans  &trans  &trans  &trans  &trans                  &trans  &trans  &trans  &trans  &trans  &trans
+            >;
+        };
+
+        snipe_stub {
+            display-name = "Snipe";
+            // keyball trackball layer — parity stub, never activated here
+            bindings = <
+&trans  &trans  &trans  &trans  &trans  &trans                  &trans  &trans  &trans  &trans  &trans  &trans
+&trans  &trans  &trans  &trans  &trans  &trans                  &trans  &trans  &trans  &trans  &trans  &trans
+&trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans
+&trans  &trans  &trans  &trans  &trans  &trans                  &trans  &trans  &trans  &trans  &trans  &trans
+            >;
+        };
+
+        ws_layer {
+            display-name = "WS";
+            // "NAV moves the cursor, WS moves containers". hjkl home row
+            // = Super+arrows on the NAV-arrow positions: KDE Meta binds
+            // desktops/overview; mac swap turns them into Ctrl+arrows =
+            // native spaces / Mission Control / Exposé. Row above = the
+            // window quad (Cmd+Ctrl+arrows) — swap-invariant.
+            bindings = <
+&none   &kp LA(F4)        &kp LC(F8)         &kp LG(E)          &none           &none                             &none         &kp LG(LC(LEFT))      &kp LG(LC(DOWN))  &kp LG(LC(UP))         &kp LG(LC(RIGHT))  &none
+&none   &kp LC(F7)        &kp LC(F9)         &kp LG(D)          &kp LC(F10)     &none                             &kp LG(LEFT)  &kp LG(DOWN)          &kp LG(UP)        &kp LG(RIGHT)          &none              &none
+&none   &kp LC(LA(LEFT))  &kp LC(LA(RIGHT))  &kp LC(LA(DOWN))   &kp LC(LA(UP))  &none   &trans          &trans    &none         &kp LC(LA(LS(LEFT))) &none             &kp LC(LA(LS(RIGHT))) &none              &none
+&trans  &trans            &trans             &trans             &trans          &trans                            &trans        &trans                &trans            &trans                 &trans             &trans
+            >;
         };
 
         mux_layer {
@@ -188,33 +310,67 @@ ZMK_TRI_STATE(swap_ctl, bindings = <&kt LCTRL>, <&kp TAB>, <&kt LCTRL>;
             sensor-bindings = <&inc_dec_kp C_VOL_UP C_VOL_DN &inc_dec_kp LC(LA(EQUAL)) LC(LA(MINUS))>;
         };
 
-        fn_layer {
-            display-name = "Fn";
-            //  `     F1   F2   F3   F4   F5   |   F6   F7   F8   F9   F10  F11
-            //  __   bt0  bt1  bt2  bt3  btclr |   __   __   __   __  studio boot
-            //  __    __   __   __   __   __   |   __   __   __   __   __   __
-            //  __    __   __ | gC   __   gV   |   __   __   __ | __   __   __
+        cmd_layer {
+            display-name = "Cmd";
+            // semantic OS commands as Ctrl-chords: native on Linux,
+            // arrive as Cmd-chords on mac via the device swap.
+            // Inspect = F12 (universal). Tab prev/next = Ctrl+PgUp/PgDn
+            // (Linux-native; mac: App Shortcuts binds once).
+            //  __  quit clos __  reld ntab | redo reop insp open laun __
+            //  __  sall save bkmk find fnxt| tab← zo-  zo+  tab→  __  __
+            //  __  undo cut  copy pste __  | nwin mini  __   __   __  __
+            //  __   __   __ | __   __   __ |  __   __   __ | __   __   __
             bindings = <
-&kp GRAVE  &kp F1        &kp F2        &kp F3        &kp F4        &kp F5                        &kp F6  &kp F7  &kp F8  &kp F9  &kp F10          &kp F11
-&none      &bt BT_SEL 0  &bt BT_SEL 1  &bt BT_SEL 2  &bt BT_SEL 3  &bt BT_CLR                    &none   &none   &none   &none   &studio_unlock   &bootloader
-&none      &none         &none         &none         &none         &none       &trans  &trans    &none   &none   &none   &none   &none            &none
-&none      &none         &none         &kp LG(C)     &none         &kp LG(V)                     &none   &none   &none   &trans  &none            &none
+&none   &kp LC(Q)  &kp LC(W)  &none      &kp LC(R)  &kp LC(T)                     &kp LC(LS(Z))  &kp LC(LS(T))  &kp F12        &kp LC(O)      &kp LC(SPACE)  &none
+&none   &kp LC(A)  &kp LC(S)  &kp LC(D)  &kp LC(F)  &kp LC(G)                     &kp LC(PG_UP)  &kp LC(MINUS)  &kp LC(EQUAL)  &kp LC(PG_DN)  &none          &none
+&none   &kp LC(Z)  &kp LC(X)  &kp LC(C)  &kp LC(V)  &none      &trans   &trans    &kp LC(N)      &kp LC(M)      &none          &none          &none          &none
+&trans  &trans     &trans     &trans     &trans     &trans                        &trans         &trans         &trans         &trans         &trans         &trans
             >;
         };
 
-        nav_layer {
-            display-name = "Nav";
-            // helix support + navigation + swappers
-            //  `    ws1  ws2  ws3  ws4   F6   |  S-Y  C-u  A-i  A-o  A-p  A-n
-            //  __   S-A  A-s  C-d (shft) S-G  |   ←    ↓    ↑    →   A-;  del
-            //  __   zz   S-X  tgC  tgV   __  __|mb3 Home PgDn PgUp  End   __   __
-            //  A-w  C-tb CS-tb| ⌘`   ⌘tab ^tab|   __   __  SYM | __   __   __
+        fun_layer {
+            display-name = "Fun";
+            //  `     F1   F2   F3   F4   F5   |   F6   F7   F8   F9   F10  F11
+            //  __   bt0  bt1  bt2  bt3  btclr |   __   __   __   __  studio boot
+            //  __    __   __   __   __   __  __|__  __  MAC!  __   __   __   __
+            //  __    __   __ | ^C   __   ^V   |   __   __   __ | __   __   __
+            // MAC! = &tog MAC (M for mac) — OS mode flag; display shows
+            // "Mac" while idle. Not persisted: retoggle after power cycle.
             bindings = <
-&kp GRAVE  &kp LG(N1)   &kp LG(N2)      &kp LG(N3)     &kp LG(N4)     &kp F6                          &kp LS(Y)  &kp LC(U)  &kp LA(I)  &kp LA(O)  &kp LA(P)     &kp LA(N)
-&trans     &kp LS(A)    &kp LA(S)       &kp LC(D)      &trans         &kp LS(G)                       &kp LEFT   &kp DOWN   &kp UP     &kp RIGHT  &kp LA(SEMI)  &kp DEL
-&none      &zz          &kp LS(X)       &kp LC(LS(C))  &kp LC(LS(V))  &none      &trans   &mkp MCLK   &kp HOME   &kp PG_DN  &kp PG_UP  &kp END    &none         &none
-&kp LA(W)  &kp LC(TAB)  &kp LC(LS(TAB)) &swap_gui_grv  &swap_gui      &swap_ctl                       &none      &none      &mo SYM    &none      &none         &none
+&kp GRAVE  &kp F1        &kp F2        &kp F3        &kp F4        &kp F5                            &kp F6  &kp F7    &kp F8    &kp F9  &kp F10          &kp F11
+&none      &bt BT_SEL 0  &bt BT_SEL 1  &bt BT_SEL 2  &bt BT_SEL 3  &bt BT_CLR                        &none   &none     &none     &none   &studio_unlock   &bootloader
+&none      &none         &none         &none         &none         &none       &trans      &trans    &none   &tog MAC  &none     &none   &none            &none
+&none      &none         &none         &kp LC(C)     &none         &kp LC(V)                         &none   &none     &none     &trans  &none            &none
             >;
+        };
+
+        macnav_layer {
+            display-name = "MacNav";
+            // active when MAC && NAV: re-emits the mac-poisoned NAV keys.
+            // Real-Ctrl helix keys emit Gui (arrives as Ctrl via swap);
+            // tab cyclers likewise; swappers cross-assigned: swap_mac_grv
+            // = Cmd+` window cycle, swap_ctl = Cmd+Tab app switcher,
+            // swap_gui = Ctrl+Tab in-app tabs.
+            bindings = <
+&trans     &trans       &trans           &trans          &trans          &trans                          &trans  &kp LG(U)  &trans  &trans  &trans  &trans
+&trans     &trans       &trans           &kp LG(D)       &trans          &trans                          &trans  &trans     &trans  &trans  &trans  &trans
+&trans     &trans       &trans           &kp LG(LS(C))   &kp LG(LS(V))   &trans        &trans  &trans    &trans  &trans     &trans  &trans  &trans  &trans
+&trans     &kp LG(TAB)  &kp LG(LS(TAB))  &swap_mac_grv   &swap_ctl       &swap_gui                       &trans  &trans     &trans  &trans  &trans  &trans
+            >;
+        };
+
+        macmux_layer {
+            display-name = "MacMux";
+            // active when MAC && MUX: the zellij grid re-emitted as
+            // Gui+Alt so the swap delivers Ctrl+Alt — zellij config
+            // stays identical on both OSes. Encoder zoom follows suit.
+            bindings = <
+&none          &kp LG(LA(N1))  &kp LG(LA(N2))  &kp LG(LA(N3))  &kp LG(LA(N4))  &kp LG(LA(N5))                    &kp LG(LA(N6))  &kp LG(LA(N7))  &kp LG(LA(N8))  &kp LG(LA(O))  &kp LG(LA(P))     &kp LG(LA(LBKT))
+&trans         &none           &kp LG(LA(S))   &kp LG(LA(D))   &kp LG(LA(F))   &kp LG(LA(G))                     &kp LG(LA(H))   &kp LG(LA(J))   &kp LG(LA(K))   &kp LG(LA(L))  &none             &trans
+&kp LG(LA(MINUS)) &kp LG(LA(Z)) &kp LG(LA(X))  &none           &none           &kp LG(LA(B))   &trans  &trans    &kp LG(LA(N))   &kp LG(LA(M))   &none           &none          &kp LG(LA(FSLH))  &kp LG(LA(RBKT))
+&kp LG(LA(W))  &kp LG(LA(R))   &kp LG(LA(T))   &trans          &trans          &trans                            &trans          &trans          &trans          &trans         &trans            &none
+            >;
+            sensor-bindings = <&inc_dec_kp C_VOL_UP C_VOL_DN &inc_dec_kp LG(LA(EQUAL)) LG(LA(MINUS))>;
         };
     };
 };
